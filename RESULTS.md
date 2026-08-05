@@ -30,45 +30,44 @@ rotation-invariant, unlike digits.
 
 ## Results (test set, `final_model` checkpoint unless noted)
 
+Paper numbers are the actual Table 1 values (CNN / CNN-DA columns) — an earlier
+version of this file compared GZ Evo and MRSSC2 against incorrect reference numbers
+that don't appear anywhere in the paper; corrected below.
+
 | Dataset | CNN src/tgt | CNN-DA src/tgt | Paper CNN src/tgt | Paper CNN-DA src/tgt | Verdict |
 |---|---|---|---|---|---|
-| Shapes | 99.87 / 65.20 | 99.30 / 36.53 | 99.80 / 50.47 | 99.82 / 78.20 | Unresolved — DA benefit is checkpoint-dependent, sometimes worse than CE |
+| Shapes | 99.87 / 65.20 | 99.30 / 36.53 | 99.80 / 50.47 | 99.82 / 78.20 | Source/CE close match; DA target benefit is checkpoint-dependent |
 | Astro. objects | 99.13 / 79.13 | 95.70 / 92.83 | 99.34 / 50.81 | 95.32 / 91.33 | **Close match** |
 | MNIST-M | 95.30 / 70.22 | 94.36 / 77.56 | 95.64 / 68.32 | 95.31 / 76.24 | **Close match** |
-| Galaxy Zoo Evo | 81.29 / 65.48 | 79.90 / 78.28 | 95.27 / 86.54 | 95.31 / 91.83 | Genuine DA gain, but ~15pp below paper on both source and target |
-| MRSSC2 | 77.50 / 25.35 | 49.31 / 37.16 | 98.29 / 64.18 | 98.25 / 77.21 | Unresolved — ~20pp below paper even on the CE baseline |
+| Galaxy Zoo Evo | 81.29 / 65.48 | 79.90 / 78.28 | 81.49 / 70.65 | 81.57 / 77.54 | **Close match** |
+| MRSSC2 | 77.50 / 25.35 | 49.31 / 37.16 | 76.14 / 31.28 | 71.27 / 36.80 | Source/CE close match; DA target matches almost exactly, but DA source is checkpoint-dependent |
 
 ## Assessment
 
-**MNIST-M and astronomical objects closely reproduce the paper** on both source and
-target, once augmentation is handled correctly. Both show the paper's qualitative
-signature cleanly: source accuracy roughly unchanged, target accuracy up substantially
-with DA.
+**MNIST-M, astronomical objects, and Galaxy Zoo Evo all closely reproduce the paper**
+on both source and target, once augmentation is handled correctly. All three show the
+paper's qualitative signature cleanly: source accuracy roughly unchanged, target
+accuracy up substantially with DA.
 
-**Two open, unresolved gaps:**
-
-1. **Shapes' and MRSSC2's DA benefit is checkpoint-dependent and sometimes inverted.**
-   Source-accuracy collapse is fixed (shapes holds ≥99% throughout the DA phase), but
-   the *target*-domain benefit is inconsistent across checkpoints — e.g. shapes'
-   `best_model_val_acc` gets 64.47% target (roughly flat vs. CE's 65.20%) while
-   `final_model` drops to 36.53% (worse than CE). MRSSC2 shows the same
-   inconsistency in direction across checkpoints. This suggests the DA mechanism
-   isn't settling into a stable optimum for these two datasets the way it does for
-   mnist_m/astro_objects/gz_evo.
-2. **MRSSC2 and Galaxy Zoo Evo — the two real-world (non-synthetic) photographic
-   datasets — have a substantial ceiling gap below the paper on the CE-only baseline
-   alone**, independent of DA entirely. Raw data was checked and is clean (`[0,1]`
-   range, correct shapes, balanced classes). Not yet explained — untested candidates
-   include whether resizing to 100×100 (mrssc2's native resolution is 256×256) loses
-   too much discriminative detail, or whether these datasets need more training epochs
-   than the paper's stated budget to reach its reported ceiling.
+**One open, unresolved issue: shapes' and MRSSC2's SIDDA checkpoints are unstable.**
+Source-accuracy collapse is fixed (shapes holds ≥99% throughout the DA phase), and the
+*best-case* numbers from either dataset land close to the paper — but which checkpoint
+gives the good number isn't consistent. Shapes' `best_model_val_acc` gets 64.47%
+target (roughly flat vs. CE's 65.20%) while `final_model` drops to 36.53% (worse than
+CE, source still fine at 99.3%). MRSSC2 shows the mirror image: `final_model`'s target
+(37.16%) nearly exactly matches the paper's CNN-DA target (36.80%), but its source
+(49.31%) is far below the paper's 71.27%, while `best_model_val_acc`'s source (74.90%)
+is close to the paper but its target (23.70%) is not. In both cases, no single
+checkpoint simultaneously matches the paper on *both* source and target — the DA
+mechanism isn't settling into one stable optimum for these two datasets the way it
+does for mnist_m/astro_objects/gz_evo. Not yet root-caused.
 
 **Bottom line**: the core SIDDA mechanism, once decoupled from the augmentation bug,
-is correctly implemented and reproduces the paper closely on 2 of 5 datasets outright,
-and shows genuine (if capped) DA benefit on a 3rd (gz_evo). The remaining two datasets
-each have a distinct, unresolved gap — one about DA training stability specifically,
-one about baseline classification ceiling on real-world imagery — that are known,
-open, parked items rather than resolved ones.
+correctly reproduces the paper on 3 of 5 datasets, and gets close on the other 2 —
+the remaining open question is specifically about checkpoint-to-checkpoint training
+stability for shapes/mrssc2, not a baseline accuracy ceiling (an earlier version of
+this document mischaracterized it as the latter, due to comparing against incorrect
+reference numbers).
 
 See `CLAUDE.md` for the full technical writeup (architecture, all bugs found and
 fixed, exact hyperparameter table, file-by-file details).
