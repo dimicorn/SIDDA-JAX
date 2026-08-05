@@ -141,7 +141,16 @@ def main(config):
     )
 
     aug_rng = np.random.default_rng(config["seed"])
-    train_transform = get_transform(dataset_name, train=True, rng=aug_rng)
+    # Opt-IN per-dataset flag, default False. The original PyTorch code's
+    # transform-aliasing bug (see CLAUDE.md) meant its published results were trained
+    # with effectively zero augmentation despite the paper's stated recipe (+-180
+    # degree rotation, flips, +-10% translation); replaying that recipe for real
+    # measurably breaks reproduction -- mnist_m's digit labels aren't invariant to
+    # +-180 degree rotation (a 6 rotated ~180 degrees looks like a 9), and even on
+    # rotation-invariant-label datasets (shapes) the combination of this augmentation
+    # strength with lr=1e-2 destabilizes optimization (see CLAUDE.md for measurements).
+    use_augment = config["parameters"].get("augment", False)
+    train_transform = get_transform(dataset_name, train=use_augment, rng=aug_rng)
     val_transform = get_transform(dataset_name, train=False, rng=aug_rng)
 
     train_subset, val_subset = split_dataset(

@@ -6,17 +6,24 @@ train_data :
         input_path : /path/to/source/domain/images
         output_path : /path/to/source/domain/labels
 
+# Values below match the paper's (arXiv:2501.14048) Appendix A Table 7 config for the
+# shapes CNN (no-DA) baseline; milestones are inferred as floor(epochs/3) and
+# floor(2*epochs/3), matching the paper's stated decay formula and "applied twice
+# sequentially" description (not spelled out verbatim as two numbers in the paper).
 parameters :
   lr : 1.0e-2
   weight_decay : 1.0e-3
   val_size : 0.2
   batch_size : 128
-  epochs : 100
-  early_stopping : 20
-  report_interval : 5
+  epochs : 50
+  early_stopping : 50
+  report_interval : 1
   lr_decay : 0.1
-  milestones : [ 30, 45 ]
-DA: False
+  milestones : [ 16, 33 ]
+  # augment defaults to False if omitted -- see CLAUDE.md's "Reproducing the paper's
+  # results" section for why (training-time rotation/flip/translate augmentation
+  # measurably breaks reproduction of the paper's numbers on the datasets tested).
+  # augment: true
 seed: 0
 
 save_dir : /path/to/save/model

@@ -451,7 +451,16 @@ def main(config):
     start = time.time()
 
     aug_rng = np.random.default_rng(config["seed"])
-    train_transform = get_transform(dataset_name, train=True, rng=aug_rng)
+    # Opt-IN per-dataset flag, default False. The original PyTorch code's
+    # transform-aliasing bug (see CLAUDE.md) meant its published results were trained
+    # with effectively zero augmentation despite the paper's stated recipe (+-180
+    # degree rotation, flips, +-10% translation); replaying that recipe for real
+    # measurably breaks reproduction -- mnist_m's digit labels aren't invariant to
+    # +-180 degree rotation (a 6 rotated ~180 degrees looks like a 9), and even on
+    # rotation-invariant-label datasets (shapes) the combination of this augmentation
+    # strength with lr=1e-2 destabilizes optimization (see CLAUDE.md for measurements).
+    use_augment = config["parameters"].get("augment", False)
+    train_transform = get_transform(dataset_name, train=use_augment, rng=aug_rng)
     val_transform = get_transform(dataset_name, train=False, rng=aug_rng)
 
     source_dataset = dataset_dict[dataset_name](
@@ -504,7 +513,19 @@ def main(config):
     lr_schedule = build_lr_schedule(config, steps_per_epoch)
     wd = config["parameters"]["weight_decay"]
     model_tx = optax.chain(optax.clip_by_global_norm(10.0), optax.adamw(lr_schedule, weight_decay=wd))
-    eta_tx = optax.adamw(lr_schedule, weight_decay=wd)
+
+    # eta_optimizer only ever receives .update() calls post-warmup (train_step_ce never
+    # touches it), so its own internal step counter starts at 0 when SIDDA begins, not at
+    # the true global step warmup*steps_per_epoch. optax schedules are evaluated against
+    # each optimizer's own counter, so feeding it the same `lr_schedule` unshifted would
+    # make its milestone-based LR decays fire `warmup` epochs late relative to both the
+    # model optimizer and the original: there, a single shared optimizer + `MultiStepLR`
+    # decays every param group's `lr` off one true-epoch-indexed counter regardless of
+    # when a group was added via add_param_group. Shifting the schedule's input by the
+    # warmup offset makes eta's local counter land on the same true-global-step value.
+    warmup_steps = config["parameters"]["warmup"] * steps_per_epoch
+    eta_lr_schedule = lambda count: lr_schedule(count + warmup_steps)
+    eta_tx = optax.adamw(eta_lr_schedule, weight_decay=wd)
 
     model_optimizer = nnx.Optimizer(model, model_tx, wrt=nnx.Param)
     eta_optimizer = nnx.Optimizer(eta_params, eta_tx, wrt=nnx.Param)

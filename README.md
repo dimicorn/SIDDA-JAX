@@ -1,128 +1,54 @@
-# SIDDA: SInkhorn Dynamic Domain Adaptation for Image Classification
+# SIDDA-JAX
 
-[![Code License](https://img.shields.io/badge/Code%20License-Apache_2.0-green.svg)](https://github.com/deepskies/SIDDA/blob/main/LICENSE)  
-[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Code License](https://img.shields.io/badge/Code%20License-Apache_2.0-green.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-![Pipeline Diagram](plots/pipeline.png)
+A JAX / Flax NNX / OTT-JAX reimplementation of [deepskies/SIDDA](https://github.com/deepskies/SIDDA), the reference PyTorch implementation for:
 
-## Overview
+> Pandya, S., Patel, P., Nord, B.D., Walmsley, M., Ciprijanovic, A. **SIDDA: SInkhorn Dynamic Domain Adaptation for Image Classification with Equivariant Neural Networks**. *Machine Learning: Science and Technology* (2025). [arXiv:2501.14048](https://arxiv.org/abs/2501.14048)
 
-**SInkhorn Dynamic Domain Adaptation (SIDDA)** supplements the experiments presented in *[2501.14048](https://arxiv.org/abs/2501.14048), SIDDA: SInkhorn Dynamic Domain Adaptation for Image Classification with Equivariant Neural Networks*. 
+SIDDA trains an image classifier with an optional Sinkhorn-divergence domain adaptation loss, dynamically tuning the DA regularization and loss weighting during training instead of requiring manual hyperparameter search. This port covers the plain CNN pipeline only — the original's escnn-based equivariant (ENN) model was not ported.
 
-SIDDA introduces a **semi-supervised, automatic domain adaptation method** that leverages Sinkhorn divergences to dynamically adjust the regularization in the optimal transport plan and the weighting between classification and domain adaptation loss terms during training. 
-
-### Key Features:
-- **Minimal hyperparameter tuning**: SIDDA utilizes information from the NN latent space geometry to dynamically adjust the OT plan during training. Loss coefficients are trainable parameters, bypassing the need for tuning loss terms when training with domain adaptation.
-- **Extensive validation**: Tested on synthetic and real-world datasets, including:
-  - Synthetic shapes and astronomical objects generated with [DeepBench](https://github.com/deepskies/DeepBench).
-  - The [MNIST-M](https://paperswithcode.com/dataset/mnist-m) dataset.
-  - The [Galaxy Zoo Evo](https://huggingface.co/collections/mwalmsley/galaxy-zoo-evo-66532c6c258f5fad31f31880) dataset.
-  - The MRSSC2 SAR/optical remote-sensing dataset.
-- This is a **JAX/Flax NNX/OTT-JAX rewrite** of the original PyTorch implementation, covering the plain CNN pipeline only (the escnn-based equivariant model from the paper is not included here).
-- **Minimal Computational overhead**: SIDDA is written using JAX, [Flax NNX](https://flax.readthedocs.io/), [Optax](https://optax.readthedocs.io/), and [OTT-JAX](https://ott-jax.readthedocs.io/) for an efficient, differentiable implementation of Sinkhorn divergences.
-
-### Data Availability
-All datasets used in this project are available on the [Zenodo record](https://zenodo.org/records/15215272) (DOI 10.5281/zenodo.15215272).
-
----
-
-## Installation
-
-Requires Python 3.10+. Set up the environment and install dependencies with (e.g. via [uv](https://docs.astral.sh/uv/)):
+## Install
 
 ```bash
-uv venv --python 3.12 .venv
+uv sync
 source .venv/bin/activate
-uv pip install -r requirements.txt
 ```
 
-To download the datasets from Zenodo:
+## Data
 
 ```bash
 cd src/scripts
 python download_data.py --all   # or --dataset <shapes|astro_objects|mnist_m|gz_evo|mrssc2>
 ```
 
-## Code Structure
+Datasets: [Zenodo record 15215272](https://zenodo.org/records/15215272).
 
-The repository is organized into the following components:
-
-- **Dataset Handling**:  
-  `src/scripts/dataset.py`  
-  Contains dataset classes for loading and preprocessing all datasets used in the experiments.
-
-- **Model Definitions**:  
-  `src/scripts/models.py`  
-  A Flax NNX CNN model (equivariant/ENN support was dropped in the JAX rewrite).
-
-- **Training Scripts**:  
-  - `src/scripts/train_CE.py`  
-    Standard training with cross-entropy loss only.
-  - `src/scripts/train_SIDDA.py`  
-    Implementation of the SIDDA training algorithm.
-
-- **Testing Scripts**:  
-  - `src/scripts/test.py`  
-    Standard model evaluation script.
-  - `src/scripts/test_calibration.py`  
-    Script for evaluating model calibration.
-
-- **Configuration Management**:  
-  Training and testing are managed via YAML configuration files.  
-  An example configuration file for typical training is provided at:  
-  `src/scripts/example_yaml_train_CE.yaml`, while an example yaml for SIDDA is provided at `src/scripts/example_yaml_train_SIDDA.yaml`. To train a model, run 
-
-  ```bash
-  python train_SIDDA.py --config example_yaml_train_SIDDA.yaml
-  ```
-
-After training, the training results are dumped into a directory <save_dir> which can be specified in the yaml file. The outputted directory has the following naming convention: `<savedir_model_(DA)_timestr>`. The directory includes the best-epoch model, final model, loss curve(s) data, $\sigma_\ell$ values, JS distances, and a config.yaml file with numerical specifics (best epoch, best loss, etc.) saved. 
-
-To test the model, run
+## Train / evaluate
 
 ```bash
-python test.py \
---model_path "/path/to/directory/containing/model" \
---x_test_path "/path/to/test/images" \
---y_test_path "/path/to/test/labels" \
---output_name "name for metrics files" \
---model_name "cnn"
+cd src/scripts
+python train_CE.py --config example_yaml_train_CE.yaml       # cross-entropy baseline
+python train_SIDDA.py --config example_yaml_train_SIDDA.yaml # + domain adaptation
+
+python test.py --model_path <run_dir> --x_test_path <path> --y_test_path <path> \
+  --output_name <name> --model_name cnn --dataset <shapes|astro_objects|mnist_m|gz_evo|mrssc2>
 ```
 
-The calibration testing script takes all the same arguments as above.
+`test_calibration.py` runs the same evaluation plus post-hoc calibration (ECE, Brier score).
 
-The test script will save:
-  - a sklearn classification report for all saved models in the directory (`/dir/metrics`)
-  - source and target domain latent vectors for each model on the whole test set (`/dir/latent_vectors`). This can later be used to plot isomaps for the models.
-  - model predictions for each model over the whole test set (`dir/y_pred`)
-  - confusion matrices for each model over the whole test set (`dir/confusion_matrix`)
+## Reproducing the paper's numbers
 
-The calibration test script will further save:
-  - calibrated confusion matrices (`dir/confusion_matrix`)
-  - calibrated probabilities on the whole test set (`dir/calibrated_probs`)
-  - Expected calibration error (ECE) and Brier scores (`dir/metrics`)
+Two things that aren't obvious from the paper text alone:
+- Per-dataset warmup/epoch/LR-milestone values differ (paper Appendix A, Table 7); the bundled example configs use the shapes values.
+- Training-time augmentation defaults to **off** (`parameters.augment: false`). The original code has a bug that meant its published results were, in practice, trained without augmentation despite the paper describing it — turning augmentation on for real measurably hurts reproduction here (e.g. it mislabels MNIST-M digits under ±180° rotation, since a `6` rotated ~180° looks like a `9`).
 
-## Notebooks
-
-- **Exploratory Data Analysis**
-  - `src/notebooks/astronomical_objects.ipynb` 
-  - `src/notebooks/shapes.ipynb`
-  - `src/notebooks/GZ_evo.ipynb`
-  - `src/notebooks/mnistm.ipynb`
-
-  These notebooks walk through the data generation procedure for simulated datasets (shapes and astronomical objects), inducing covariate shifts (for shapes, astronomical objects, and MNIST-M), and properly loading the galaxy evo dataset.
-
-- **Paper Plots**
-  - `src/paper_notebooks/plotting_isomaps.ipynb`
-  - `src/paper_notebooks/plotting_js_distances.ipynb`
-
-These notebooks can be used to reproduce Figures 4 and 5 in the paper. The data can be found on our Zenodo page.
-
-### Code Authors
-
-- Sneh Pandya
+See `RESULTS.md` for per-dataset reproduction numbers and open issues, and `CLAUDE.md` for the full technical writeup.
 
 ## Citation
+
+If you use this code, please cite the original paper:
 
 ```bibtex
 @article{Pandya_2025,

@@ -105,7 +105,9 @@ class CNN(nnx.Module):
             bias_init=nnx.initializers.zeros,
             rngs=rngs,
         )
-        self.layer_norm = nnx.LayerNorm(256, rngs=rngs)
+        # PyTorch's nn.LayerNorm default eps is 1e-5; Flax's own default (1e-6) is 10x
+        # smaller -- match PyTorch explicitly.
+        self.layer_norm = nnx.LayerNorm(256, epsilon=1e-5, rngs=rngs)
         self.fc2 = nnx.Linear(
             256,
             num_classes,
