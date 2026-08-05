@@ -1,3 +1,5 @@
+# model: cnn only -- the escnn-based equivariant (d4) model was removed in the
+# JAX/Flax rewrite and is no longer a supported value here.
 model : cnn
 dataset: "shapes"
 train_data :
@@ -14,7 +16,6 @@ parameters :
   report_interval : 5
   lr_decay : 0.1
   milestones : [ 30, 45 ]
-  warmup: 10
 DA: False
 seed: 0
 

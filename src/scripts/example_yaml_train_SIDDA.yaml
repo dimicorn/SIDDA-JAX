@@ -1,4 +1,6 @@
-model : d4
+# model: cnn only -- the escnn-based equivariant (d4) model was removed in the
+# JAX/Flax rewrite and is no longer a supported value here.
+model : cnn
 dataset: "shapes"
 train_data :
   input_path : /path/to/source/domain/images

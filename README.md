@@ -1,7 +1,7 @@
 # SIDDA: SInkhorn Dynamic Domain Adaptation for Image Classification
 
 [![Code License](https://img.shields.io/badge/Code%20License-Apache_2.0-green.svg)](https://github.com/deepskies/SIDDA/blob/main/LICENSE)  
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/release/python-390/)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 
 ![Pipeline Diagram](plots/pipeline.png)
 
@@ -17,24 +17,31 @@ SIDDA introduces a **semi-supervised, automatic domain adaptation method** that 
   - Synthetic shapes and astronomical objects generated with [DeepBench](https://github.com/deepskies/DeepBench).
   - The [MNIST-M](https://paperswithcode.com/dataset/mnist-m) dataset.
   - The [Galaxy Zoo Evo](https://huggingface.co/collections/mwalmsley/galaxy-zoo-evo-66532c6c258f5fad31f31880) dataset.
-- Compatible with:
-  - CNNs implemented in PyTorch.
-  - Equivariant Neural Networks (ENNs) using [escnn](https://github.com/QUVA-Lab/escnn).
-- **Minimal Computational overhead**: SIDDA is written using PyTorch and [geomloss](https://www.kernel-operations.io/geomloss/), for efficient implementation of Sinkhorn divergences.
+  - The MRSSC2 SAR/optical remote-sensing dataset.
+- This is a **JAX/Flax NNX/OTT-JAX rewrite** of the original PyTorch implementation, covering the plain CNN pipeline only (the escnn-based equivariant model from the paper is not included here).
+- **Minimal Computational overhead**: SIDDA is written using JAX, [Flax NNX](https://flax.readthedocs.io/), [Optax](https://optax.readthedocs.io/), and [OTT-JAX](https://ott-jax.readthedocs.io/) for an efficient, differentiable implementation of Sinkhorn divergences.
 
 ### Data Availability
-All datasets used in this project are available on our [Zenodo page](https://zenodo.org/uploads/14583107).
+All datasets used in this project are available on the [Zenodo record](https://zenodo.org/records/15215272) (DOI 10.5281/zenodo.15215272).
 
 ---
 
 ## Installation
 
-To set up the environment, install the required dependencies using:
+Requires Python 3.10+. Set up the environment and install dependencies with (e.g. via [uv](https://docs.astral.sh/uv/)):
 
 ```bash
-pip install -r requirements.txt
+uv venv --python 3.12 .venv
+source .venv/bin/activate
+uv pip install -r requirements.txt
 ```
-or consult appropriate online documentation.
+
+To download the datasets from Zenodo:
+
+```bash
+cd src/scripts
+python download_data.py --all   # or --dataset <shapes|astro_objects|mnist_m|gz_evo|mrssc2>
+```
 
 ## Code Structure
 
@@ -46,7 +53,7 @@ The repository is organized into the following components:
 
 - **Model Definitions**:  
   `src/scripts/models.py`  
-  Includes implementations of the CNN and ENN models.
+  A Flax NNX CNN model (equivariant/ENN support was dropped in the JAX rewrite).
 
 - **Training Scripts**:  
   - `src/scripts/train_CE.py`  
@@ -57,7 +64,7 @@ The repository is organized into the following components:
 - **Testing Scripts**:  
   - `src/scripts/test.py`  
     Standard model evaluation script.
-  - `src/scripts/test_calibrated.py`  
+  - `src/scripts/test_calibration.py`  
     Script for evaluating model calibration.
 
 - **Configuration Management**:  
@@ -79,7 +86,7 @@ python test.py \
 --x_test_path "/path/to/test/images" \
 --y_test_path "/path/to/test/labels" \
 --output_name "name for metrics files" \
---model_name "type of model (D_4 or CNN)"
+--model_name "cnn"
 ```
 
 The calibration testing script takes all the same arguments as above.

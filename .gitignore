@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+*.pyc
+src/scripts/data/
+results/
